@@ -2,6 +2,7 @@
 A script that fetches threads from tieba, powered by [HibiAPI](https://github.com/mixmoe/HibiAPI).
 
 ### Usage
+The script requires python 3.6+. run `pip install -r requirements.txt` to install requirements.
 ```
 usage: tieba-thread-fetcher.py [-h] [-r REMOTE] [-w INTERVAL] [-t TRIES] [-a] [-p] [-e] [-o OUTPUT] [-s] [-q]
                                threads [threads ...]

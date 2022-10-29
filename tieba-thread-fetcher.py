@@ -3,7 +3,6 @@
 import os
 import sys
 import argparse
-
 import requests
 import json
 import time
@@ -694,7 +693,8 @@ def main():
 						floor, '<a href="%s%s" class="usr">%s</a>' % (
 							TIEBA_HOME_PREFIX, author[1], author[0]) if author is not None else an)
 					buf += '      <div>%s</div>\n' % (
-						get_content_html(remote, data, post['content'], embed=embed, nomedia=no_media, fn=thread_fn, output=output))
+						get_content_html(remote, data, post['content'], embed=embed, nomedia=no_media, fn=thread_fn,
+										 output=output))
 					buf += '    </div>\n'
 					buf += '    \n'
 					sdt = None
