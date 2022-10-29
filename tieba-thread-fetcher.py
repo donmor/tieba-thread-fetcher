@@ -38,8 +38,6 @@ def res2b64(src, fallback='application/octet-stream', quiet=False, size=0):
 		if i > 0:
 			print('\033[33mW: Retry: %d\033[0m' % i, file=sys.stderr)
 		try:
-			# req = requests.get(src)
-			# if req.status_code == 200:
 			if interval > 0:
 				time.sleep(interval)
 			with closing(requests.get(src, stream=True)) as req:
@@ -73,7 +71,6 @@ def res2b64(src, fallback='application/octet-stream', quiet=False, size=0):
 					print('\033[1;31mE: Server reported 404 at %s\033[0m' % src, file=sys.stderr)
 					return src
 				else:
-					# print(src)
 					raise Exception('Server reported %d at %s' % (req.status_code, src))
 		except Exception as e:
 			print('\033[1;31mE: %s\033[0m' % e, file=sys.stderr)
@@ -88,22 +85,9 @@ def res2local(src, fn, parent='', cat='', overwrite=True, size=0, quiet=False):
 	dirname = '%s.html_files' % fn
 	pathname = os.path.join(parent, dirname, cat)
 	os.makedirs(pathname, exist_ok=True)
-	# if src[:37] == 'http://c.tieba.baidu.com/c/p/img?src=':
-	# 	filename = os.path.basename(src[37:].split('&')[0])
-	# elif src[:38] == 'http://c.tieba.baidu.com/c/p/img?src=':
-	# 	filename = os.path.basename(src[38:].split('&')[0])
-	# else:
 	filename = os.path.basename(src.split('?')[0])
 	file = os.path.join(pathname, filename)
-	# ts0 = 0
-	# sz0 = 0
-	# try:
-	# 	ts0 = os.path.getmtime(file)
-	# 	sz0 = os.path.getsize(file)
-	# except OSError:
-	# 	pass
 	if not overwrite and os.path.isfile(file):
-		# print('SKIP')
 		return parse.quote(os.path.join(dirname, cat, filename))
 	for i in range(tries):
 		if i > 0:
@@ -114,18 +98,11 @@ def res2local(src, fn, parent='', cat='', overwrite=True, size=0, quiet=False):
 			with closing(requests.get(src, stream=True, timeout=REQ_TIMEOUT)) as req:
 				sc = req.status_code
 				if sc == 200:
-					# ts = 0
-					# try:
-					# 	ts = time.mktime(time.strptime(req.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'))
-					# except KeyError:
-					# 	pass
 					if size == 0:
 						try:
 							size = int(req.headers['content_length'])
 						except KeyError:
 							pass
-					# if ts == ts0 and size == sz0:
-					# 	return parse.quote(os.path.join(dirname, cat, filename))
 					with open(file, 'wb') as f:
 						if quiet or tqdm is None:
 							for cb in req.iter_content(chunk_size=BUF_SIZE):
@@ -142,32 +119,12 @@ def res2local(src, fn, parent='', cat='', overwrite=True, size=0, quiet=False):
 										cb = cb[23:]
 									s = f.write(cb)
 									progress.update(s)
-					# for cb in req.iter_content(chunk_size=BUF_SIZE) if tqdm is None else tqdm(
-					# 		iterable=req.iter_content(chunk_size=BUF_SIZE),
-					# 		desc='            ', unit='KB', unit_scale=True, unit_divisor=1024):
-					# total=size, desc='            ', unit='KB', unit_scale=1024):
-					# f.write(cb)
-					# os.utime(file, (ts, ts))
 					return parse.quote(os.path.join(dirname, cat, filename))
 				elif sc == 404:
 					print('\033[1;31mE: Server reported 404 at %s\033[0m' % src, file=sys.stderr)
 					return parse.quote(os.path.join(dirname, cat, filename)) if os.path.isfile(file) else src
 				else:
-					# print(src)
 					raise Exception('Server reported %d at %s' % (req.status_code, src))
-		# req = requests.get(src)
-		# if req.status_code == 200:
-		# 	content = req.content
-		# else:
-		# 	# print(src)
-		# 	raise Exception('Server reported %d at %s' % req.status_code, src)
-		# except Exception as e:
-		# 	print('\033[1;31mE: %s\033[0m' % e, file=sys.stderr)
-		# 	return src
-		# try:
-		# 	with open(os.path.join(pathname, filename), 'wb') as f:
-		# 		f.write(content)
-		# 	return parse.quote(os.path.join(dirname, cat, filename))
 		except Exception as e:
 			print('\033[1;31mE: %s\033[0m' % e, file=sys.stderr)
 	return parse.quote(os.path.join(dirname, cat, filename)) if os.path.isfile(file) else src
@@ -260,30 +217,20 @@ def get_subs(remote, thread, post, page=1):
 
 
 def get_json(remote, thread, page=1):
-	# jsons = {}
-	# i = 0
-	# total = len(threads)
-	# for thread in threads:
 	for i in range(tries):
 		if i > 0:
 			print('\033[33mW: Retry: %d\033[0m' % i, file=sys.stderr)
 		try:
-			#     print('....Fetching thread %s (%d/%d)...' % (thread, i + 1, total), end='', file=sys.stderr)
 			if interval > 0:
 				time.sleep(interval)
 			req = requests.get(remote + '/post_detail', params={'tid': thread, 'page': str(page)})
 			sc = req.status_code
 			if sc == 200:
-				#     print('\033[1;32mSUCCESS\033[0m', file=sys.stderr)
-				#     jsons[thread] = req.content
 				return req.content
 			elif sc == 404:
 				break
 		except requests.RequestException:
 			pass
-	#       print('\033[1;31mFAILED\033[0m', file=sys.stderr)
-	# print('%d thread%s successfully fetched.' % (len(jsons), 's' if len(jsons) > 1 else ''), file=sys.stderr)
-	# return jsons
 	return ''
 
 
@@ -319,9 +266,7 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 	html_buf += '<head>'
 	html_buf += '</head>'
 	html_buf += '<body>'
-	# first = True
 	last = -1
-	# print(contents, file=sys.stderr)
 	i = 0
 	for content in contents:
 		i += 1
@@ -331,13 +276,7 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			if not g_quiet:
 				print('NONE', file=sys.stderr)
 			continue
-		# print(content, file=sys.stderr)
 		c_type = int(content['type'])
-		# if c_type in ('0', '3', '5'):
-		#     if first:
-		#         first = False
-		#     elif not sub:
-		#         buf += '<br/>'
 		if (last == 0 and c_type == 0 or last in (3, 5, 11) or last != -1 and c_type in (3, 5, 11)) and not sub:
 			html_buf += '<br/>'
 		if c_type == 0:
@@ -366,7 +305,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 						src, fn, parent=output, cat='emoticon', overwrite=False, quiet=True), alt)
 		elif c_type == 3:
 			# Image
-			# print(content, file=sys.stderr)
 			if not g_quiet:
 				print('\033[36mIMAGE\033[0m detected' % content, file=sys.stderr)
 			src = ''
@@ -399,7 +337,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					length = int(content['origin_size'])
 				except (KeyError, ValueError):
 					pass
-			# print(dict.keys(content))
 			html_buf += '<img class="BDE_Image" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
 				src if nomedia else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
@@ -417,12 +354,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			except KeyError:
 				r = text
 			html_buf += r
-		# elif c_type == 4:
-		# 	# Username (As plain text)
-		# 	if not g_quiet:
-		# 		print('\033[36mUSERNAME\033[0m detected' % content, file=sys.stderr)
-		# 	text = content['text']
-		# 	html_buf += text
 		elif c_type == 5:
 			# Video (Embedded or link)
 			if not g_quiet:
@@ -469,7 +400,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			html_buf += text
 		elif c_type == 11:
 			# Big emoticon
-			# print(content, file=sys.stderr)
 			if not g_quiet:
 				print('\033[36mBIG EMOTICON\033[0m detected' % content, file=sys.stderr)
 			src = ''
@@ -493,7 +423,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					src, fn, parent=output, cat='big_emoticon', overwrite=False, quiet=True))
 		elif c_type == 16:
 			# Graffiti
-			# print(content, file=sys.stderr)
 			if not g_quiet:
 				print('\033[36mGRAFFITI\033[0m detected' % content, file=sys.stderr)
 			src = ''
@@ -526,7 +455,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					length = int(content['origin_size'])
 				except (KeyError, ValueError):
 					pass
-			# print(dict.keys(content))
 			html_buf += '<img class="BDE_Image" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
 				src if nomedia else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
@@ -540,7 +468,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			html_buf += '<a href="%s">%s</a>' % (link, text)
 		elif c_type == 20:
 			# Emoticon graph (Yet another)
-			# print(content, file=sys.stderr)
 			if not g_quiet:
 				print('\033[36mEMOTICON GRAPH\033[0m detected' % content, file=sys.stderr)
 			src = ''
@@ -566,9 +493,6 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			print('\033[33mW: Unimplemented content block: %s\033[0m' % content, file=sys.stderr)
 			html_buf += '<span style="border: 1px solid red">%s</span>' % content
 			pass
-		# if c_type not in (0, 1, 2, 3, 4, 5, 9, 11, 16, 18, 20):  # TODO: Remove it
-		# 	print('TESTING: Find type %s' % c_type, file=sys.stderr)
-		# 	print(content, file=sys.stderr)
 		last = c_type
 	html_buf += '</body>'
 	html_buf += '</html>'
@@ -623,12 +547,10 @@ def main():
 	no_sub = args.no_sub
 	embed = args.embed
 	output = args.output
-	# s_in = args.s_in
 	s_out = args.s_out
 	g_quiet = args.g_quiet
 	threads = args.threads
 	s_in = '-' in threads
-	# Determine if remote daemon is to be used
 	if not g_quiet:
 		print('Connecting to remote HibiAPI daemon... ', end='', file=sys.stderr)
 	for i in range(tries):
@@ -666,12 +588,8 @@ def main():
 	else:
 		if not g_quiet:
 			print('Fetching %d thread%s....' % (len(threads), 's' if len(threads) > 1 else ''), file=sys.stderr)
-	# jsons = get_jsons(remote, threads)
-	# print('Processing %d thread%s....' % (len(jsons), 's' if len(jsons) > 1 else ''), file=sys.stderr)
 	i = 0
-	# for thread, js in jsons.items():
 	for thread in (sys.stdin if s_in else threads):
-		# print('....Processing thread %s (%d/%d)...' % (thread, i + 1, len(jsons)), file=sys.stderr)
 		thread = thread.rstrip()
 		if not thread.isdecimal():
 			print('\033[1;31mE: Illegal thread %s\033[0m' % thread, file=sys.stderr)
@@ -685,7 +603,6 @@ def main():
 			if not g_quiet:
 				print('  * Processing thread %s (%d/%d)...' % (thread, i + 1, len(threads)), file=sys.stderr)
 		try:
-			# meta = json.loads(js[0])
 			data = json.loads(get_json(remote, thread))
 			if type(data) != dict:
 				raise TypeError('Invalid data type, abandoned')
@@ -695,7 +612,6 @@ def main():
 			except KeyError:
 				raise Exception('Thread not accessible, abandoned')
 			thread_link = 'https://tieba.baidu.com/p/%s' % thread
-			# ich = ('[', '?', '*', '"', '/', '\\', '|', ':', '>', '<', ']', ' ', '%')
 			ich = '[<\\\'|/"?*%>] '
 			thread_fn = ''.join([c for c in thread_title if c not in ich])
 			forum = None
@@ -705,8 +621,6 @@ def main():
 				pass
 			if not g_quiet:
 				print('    Title is "%s"' % thread_title, file=sys.stderr)
-			# for c in ich:
-			#     thread_fn = thread_fn.replace(c, '_')
 			# Generate html
 			buf = '<!DOCTYPE html>\n'
 			buf += '<html lang="zh">\n'
@@ -750,14 +664,10 @@ def main():
 			max_floor = 0
 			cp = 1
 			while not is_last:
-				# data = json.loads(get_json(remote, thread, cp))
-				# if type(data) != dict:
-				#     raise TypeError('Invalid data type, abandoned')
 				pl = data['post_list']
 				if len(pl) == 0:
 					break
 				for post in pl:
-					# print(post, file=sys.stderr)
 					floor = int(post['floor'])
 					if floor <= max_floor:
 						is_last = True
@@ -783,25 +693,16 @@ def main():
 						time.strftime(TIME_STR, time.localtime(th_time)),
 						floor, '<a href="%s%s" class="usr">%s</a>' % (
 							TIEBA_HOME_PREFIX, author[1], author[0]) if author is not None else an)
-					# buf += '      <div>%s #%d: <b><a href="%s%s" class="usr">%s</a></b></div>\n' % (
-					# 	time.strftime(TIME_STR, time.localtime(th_time)),
-					# 	floor, TIEBA_HOME_PREFIX, author[1], author[0])
 					buf += '      <div>%s</div>\n' % (
 						get_content_html(remote, data, post['content'], embed=embed, nomedia=no_media, fn=thread_fn, output=output))
 					buf += '    </div>\n'
 					buf += '    \n'
 					sdt = None
-					# print('Fetching subposts...', end='', file=sys.stderr)
 					if not no_sub:
 						try:
-							# print(1)
-							# print(post['id'])
-							# print(json.loads(get_subs(remote, thread, post['id'])))
-							sdt = json.loads(get_subs(remote, thread, post['id']))
 							sdt = json.loads(get_subs(remote, thread, post['id']))['subpost_list']
 						except (ValueError, KeyError):
 							pass
-					# print('%d found' % (len(sdt) if type(sdt) == list else 0), file=sys.stderr)
 					if type(sdt) == list and len(sdt) > 0:
 						if not g_quiet:
 							print('        Subposts detected in floor %d' % floor, file=sys.stderr)
@@ -811,7 +712,6 @@ def main():
 						buf += '      \n'
 						cp_s = 1
 						ii = 0
-						# while not is_last_s:
 						while len(sdt) > 0:
 							for subpost in sdt:
 								st_time = 0
@@ -835,10 +735,8 @@ def main():
 										nomedia=no_media, fn=thread_fn, output=output))
 								buf += '      \n'
 								ii += 1
-							# print('P%dS%d' % (cp_s, ii), file=sys.stderr)
 							cp_s += 1
 							try:
-								# print(2)
 								sdt = json.loads(get_subs(remote, thread, post['id'], cp_s))['subpost_list']
 							except (ValueError, KeyError):
 								pass
@@ -864,7 +762,6 @@ def main():
 				print('    Thread %s successfully fetched' % thread, file=sys.stderr)
 		except Exception as e:
 			print('\033[1;31mE: %s\033[0m' % e, file=sys.stderr)
-		# print(traceback.format_exc())
 		i += 1
 	if not g_quiet:
 		print('Complete.', file=sys.stderr)
