@@ -24,9 +24,33 @@ TIME_STR = '%Y-%m-%d %H:%M'
 BUF_SIZE = 4096
 REQ_TIMEOUT = 15
 
-g_quiet = False
+remote = 'https://api.obfs.dev/api/tieba'
 interval = 0
 tries = 1
+no_media = False
+embed = False
+output = ''
+d_json = False
+g_quiet = False
+
+
+def dump_json(data, fn, cat, xid, pid='', page=1):
+	try:
+		if len(fn) == 0:
+			return
+		dirname = '%s.html_jsons' % fn
+		pathname = os.path.join(output, dirname)
+		os.makedirs(pathname, exist_ok=True)
+		# 0 - thread page, 1 - subpost page, 2 - user data
+		filename = 'thread_%s_%d.json' % (xid, page) if cat == 0 else 'subpost_%s_%s_%d.json' % (
+			xid, pid, page) if cat == 1 else 'user_%s.json' % xid if cat == 2 else None
+		if filename is None:
+			raise Exception('Invalid data category')
+		file = os.path.join(pathname, filename)
+		with open(file, 'wb') as f:
+			f.write(data)
+	except Exception as e:
+		print('\033[1;31mE: %s\033[0m' % e, file=sys.stderr)
 
 
 def res2b64(src, fallback='application/octet-stream', quiet=False, size=0):
@@ -76,13 +100,13 @@ def res2b64(src, fallback='application/octet-stream', quiet=False, size=0):
 	return src
 
 
-def res2local(src, fn, parent='', cat='', overwrite=True, size=0, quiet=False):
+def res2local(src, fn,  cat='', overwrite=True, size=0, quiet=False):
 	if src[:2] == '//':
 		src = 'http:' + src
 	if len(fn) == 0:
 		return src
 	dirname = '%s.html_files' % fn
-	pathname = os.path.join(parent, dirname, cat)
+	pathname = os.path.join(output, dirname, cat)
 	os.makedirs(pathname, exist_ok=True)
 	filename = os.path.basename(src.split('?')[0])
 	file = os.path.join(pathname, filename)
@@ -197,7 +221,7 @@ def text2emoticon(text):
 	return src
 
 
-def get_subs(remote, thread, post, page=1):
+def get_subs(thread, post, page=1, fn=''):
 	for i in range(tries):
 		if i > 0:
 			print('\033[33mW: Retry: %d\033[0m' % i, file=sys.stderr)
@@ -207,7 +231,10 @@ def get_subs(remote, thread, post, page=1):
 			req = requests.get(remote + '/subpost_detail', params={'tid': thread, 'pid': post, 'page': str(page)})
 			sc = req.status_code
 			if sc == 200:
-				return req.content
+				data = req.content
+				if d_json:
+					dump_json(data, fn, 1, thread, pid=post, page=page)
+				return data
 			elif sc == 404:
 				break
 		except requests.RequestException:
@@ -215,7 +242,7 @@ def get_subs(remote, thread, post, page=1):
 	return None
 
 
-def get_json(remote, thread, page=1):
+def get_json(thread, page=1, fn=''):
 	for i in range(tries):
 		if i > 0:
 			print('\033[33mW: Retry: %d\033[0m' % i, file=sys.stderr)
@@ -225,7 +252,10 @@ def get_json(remote, thread, page=1):
 			req = requests.get(remote + '/post_detail', params={'tid': thread, 'page': str(page)})
 			sc = req.status_code
 			if sc == 200:
-				return req.content
+				data = req.content
+				if d_json:
+					dump_json(data, fn, 0, thread, page=page)
+				return data
 			elif sc == 404:
 				break
 		except requests.RequestException:
@@ -233,7 +263,7 @@ def get_json(remote, thread, page=1):
 	return ''
 
 
-def get_author(remote, data, uid):
+def get_author(data, uid, fn=''):
 	try:
 		for user in data['user_list']:
 			if uid == user['id']:
@@ -249,7 +279,10 @@ def get_author(remote, data, uid):
 		req = requests.get(remote + '/user_profile', params={'uid': uid})
 		sc = req.status_code
 		if sc == 200:
-			d0 = json.loads(req.content)
+			jd = req.content
+			if d_json:
+				dump_json(jd, fn, 2, uid)
+			d0 = json.loads(jd)
 			user = d0['user']
 			try:
 				return [user['name_show'], user['portrait']]
@@ -260,7 +293,7 @@ def get_author(remote, data, uid):
 	return None
 
 
-def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=False, fn='', output=''):
+def get_content_html(data, contents, sub=False, fn=''):
 	html_buf = '<html>'
 	html_buf += '<head>'
 	html_buf += '</head>'
@@ -300,8 +333,8 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			src = text2emoticon(text)
 			if len(src) > 0:
 				html_buf += '<img class="BDE_Smiley" pic_type="1" width="30" height="30" src="%s" alt="%s"/>' % (
-					src if nomedia else res2b64(src, fallback='image/png', quiet=True) if embed else res2local(
-						src, fn, parent=output, cat='emoticon', overwrite=False, quiet=True), alt)
+					src if no_media else res2b64(src, fallback='image/png', quiet=True) if embed else res2local(
+						src, fn, cat='emoticon', overwrite=False, quiet=True), alt)
 		elif c_type == 3:
 			# Image
 			if not g_quiet:
@@ -338,8 +371,8 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					pass
 			html_buf += '<img class="BDE_Image" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
-				src if nomedia else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
-					src, fn, parent=output, cat='image', size=length))
+				src if no_media else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
+					src, fn, cat='image', size=length))
 		elif c_type == 4:
 			# Username (As link)
 			if not g_quiet:
@@ -347,7 +380,7 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			text = content['text']
 			uid = content['uid']
 			try:
-				author = get_author(remote, data, uid)
+				author = get_author(data, uid, fn=fn)
 				r = '<a href="%s%s" class="usr">%s</a>' % (
 					TIEBA_HOME_PREFIX, author[1], author[0]) if author is not None else text
 			except KeyError:
@@ -380,10 +413,10 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 			else:
 				html_buf += '<video width="%s" height="%s" poster="%s" src="%s" controls/><br/><a href="%s">贴吧视频</a>' % (
 					size[0], size[1],
-					src if nomedia else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
-						src, fn, parent=output, cat='poster', size=length),
-					link if nomedia else res2b64(link, fallback='video/mp4', size=length) if embed else res2local(
-						link, fn, parent=output, cat='video', size=length),
+					src if no_media else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
+						src, fn, cat='poster', size=length),
+					link if no_media else res2b64(link, fallback='video/mp4', size=length) if embed else res2local(
+						link, fn, cat='video', size=length),
 					text)
 		elif c_type == 7:
 			# Line break
@@ -418,8 +451,8 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					pass
 			html_buf += '<img class="BDE_Smiley" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
-				src if nomedia else res2b64(src, fallback=fb, quiet=True) if embed else res2local(
-					src, fn, parent=output, cat='big_emoticon', overwrite=False, quiet=True))
+				src if no_media else res2b64(src, fallback=fb, quiet=True) if embed else res2local(
+					src, fn, cat='big_emoticon', overwrite=False, quiet=True))
 		elif c_type == 16:
 			# Graffiti
 			if not g_quiet:
@@ -456,8 +489,8 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 					pass
 			html_buf += '<img class="BDE_Image" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
-				src if nomedia else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
-					src, fn, parent=output, cat='image', size=length))
+				src if no_media else res2b64(src, fallback='image/jpeg', size=length) if embed else res2local(
+					src, fn, cat='image', size=length))
 		elif c_type == 18:
 			# Topic (As link)
 			if not g_quiet:
@@ -483,8 +516,8 @@ def get_content_html(remote, data, contents, sub=False, embed=False, nomedia=Fal
 				pass
 			html_buf += '<img class="BDE_Smiley" pic_type="0" width="%s" height="%s" src="%s"/>' % (
 				size[0], size[1],
-				src if nomedia else res2b64(src, fallback=fb, quiet=True) if embed else res2local(
-					src, fn, parent=output, cat='big_emoticon', overwrite=False, quiet=True))
+				src if no_media else res2b64(src, fallback=fb, quiet=True) if embed else res2local(
+					src, fn, cat='big_emoticon', overwrite=False, quiet=True))
 		else:
 			# Not implemented
 			if not g_quiet:
@@ -526,6 +559,9 @@ def main():
 		'-s', '--stdout', action='store_true', dest='s_out', default=False,
 		help='Write to stdout')
 	parser.add_argument(
+		'-j', '--dump-jsons', action='store_true', dest='d_json', default=False,
+		help='Do not print messages (except warnings or errors')
+	parser.add_argument(
 		'-q', '--quiet', action='store_true', dest='g_quiet', default=False,
 		help='Do not print messages (except warnings or errors')
 	parser.add_argument(
@@ -534,9 +570,14 @@ def main():
 	args = parser.parse_args()
 	if sys.version_info < (3, 6):
 		print('\033[33mW: Running on python(<3.6) may cause error. Consider upgrading\033[0m', file=sys.stderr)
-	global g_quiet
-	global tries
+	global remote
 	global interval
+	global tries
+	global no_media
+	global embed
+	global output
+	global d_json
+	global g_quiet
 	interval = args.interval
 	tries = args.tries
 	if tries < 1:
@@ -547,6 +588,7 @@ def main():
 	embed = args.embed
 	output = args.output
 	s_out = args.s_out
+	d_json = args.d_json
 	g_quiet = args.g_quiet
 	threads = args.threads
 	s_in = '-' in threads
@@ -602,7 +644,8 @@ def main():
 			if not g_quiet:
 				print('  * Processing thread %s (%d/%d)...' % (thread, i + 1, len(threads)), file=sys.stderr)
 		try:
-			data = json.loads(get_json(remote, thread))
+			json_s = get_json(thread)
+			data = json.loads(json_s)
 			if type(data) != dict:
 				raise TypeError('Invalid data type, abandoned')
 			# Common data
@@ -614,6 +657,8 @@ def main():
 			ich = '[<\\\'|/"?*%>] '
 			thread_fn = ''.join([c for c in thread_title if c not in ich])
 			forum = None
+			if d_json:
+				dump_json(json_s, thread_fn, 0, thread)
 			try:
 				forum = data['forum']['name']
 			except KeyError:
@@ -678,7 +723,7 @@ def main():
 					an = '贴吧用户'
 					try:
 						an = post['author_id']
-						author = get_author(remote, data, an)
+						author = get_author(data, an, fn=thread_fn)
 					except KeyError:
 						pass
 					th_time = 0
@@ -693,14 +738,14 @@ def main():
 						floor, '<a href="%s%s" class="usr">%s</a>' % (
 							TIEBA_HOME_PREFIX, author[1], author[0]) if author is not None else an)
 					buf += '      <div>%s</div>\n' % (
-						get_content_html(remote, data, post['content'], embed=embed, nomedia=no_media, fn=thread_fn,
-										 output=output))
+						get_content_html(
+							data, post['content'], fn=thread_fn))
 					buf += '    </div>\n'
 					buf += '    \n'
 					sdt = None
 					if not no_sub:
 						try:
-							sdt = json.loads(get_subs(remote, thread, post['id']))['subpost_list']
+							sdt = json.loads(get_subs(thread, post['id'], fn=thread_fn))['subpost_list']
 						except (ValueError, KeyError):
 							pass
 					if type(sdt) == list and len(sdt) > 0:
@@ -731,13 +776,12 @@ def main():
 								buf += '      <div>%s <b><a href="%s%s" class="usr">%s</a></b>: %s</div>\n' % (
 									time.strftime(TIME_STR, time.localtime(st_time)), TIEBA_HOME_PREFIX, au_po_s,
 									au_name_s, get_content_html(
-										remote, data, subpost['content'], sub=True, embed=embed,
-										nomedia=no_media, fn=thread_fn, output=output))
+										data, subpost['content'], sub=True, fn=thread_fn))
 								buf += '      \n'
 								ii += 1
 							cp_s += 1
 							try:
-								sdt = json.loads(get_subs(remote, thread, post['id'], cp_s))['subpost_list']
+								sdt = json.loads(get_subs(thread, post['id'], page=cp_s, fn=thread_fn))['subpost_list']
 							except (ValueError, KeyError):
 								pass
 						buf += '    </div>\n'
@@ -746,7 +790,7 @@ def main():
 					buf += '  </div>\n'
 					buf += '  \n'
 				cp += 1
-				data = json.loads(get_json(remote, thread, cp))
+				data = json.loads(get_json(thread, page=cp, fn=thread_fn))
 				if type(data) != dict:
 					raise TypeError('Invalid data type, abandoned')
 			buf += '</body>\n'
