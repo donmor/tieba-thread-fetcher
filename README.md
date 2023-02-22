@@ -25,7 +25,7 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         Specify a directory where the fetched files go. Uses working directory if not specified
   -s, --stdout          Write to stdout
-  -j, --dump-jsons      Do not print messages (except warnings or errors
-  -q, --quiet           Do not print messages (except warnings or errors
+  -j, --dump-jsons      Also dump the original JSON
+  -q, --quiet           Do not print messages (except warnings or errors)
 ```
 To make it run faster you can [host HibiAPI on your local machine](https://github.com/mixmoe/HibiAPI/wiki/Deployment).
