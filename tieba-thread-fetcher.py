@@ -560,10 +560,10 @@ def main():
 		help='Write to stdout')
 	parser.add_argument(
 		'-j', '--dump-jsons', action='store_true', dest='d_json', default=False,
-		help='Do not print messages (except warnings or errors')
+		help='Also dump the original JSON')
 	parser.add_argument(
 		'-q', '--quiet', action='store_true', dest='g_quiet', default=False,
-		help='Do not print messages (except warnings or errors')
+		help='Do not print messages (except warnings or errors)')
 	parser.add_argument(
 		dest='threads', type=str, nargs='+',
 		help='Threads to be fetched, in the format "tid"; Use "-" to use stdin and pass threads line by line')
