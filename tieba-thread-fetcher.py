@@ -650,7 +650,8 @@ def main():
 				raise TypeError('Invalid data type, abandoned')
 			# Common data
 			try:
-				thread_title = data['thread']['thread_info']['title']
+				#thread_title = data['thread']['thread_info']['title']
+				thread_title = data['thread']['title']
 			except KeyError:
 				raise Exception('Thread not accessible, abandoned')
 			thread_link = 'https://tieba.baidu.com/p/%s' % thread
