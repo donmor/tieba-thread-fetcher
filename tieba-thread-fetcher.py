@@ -653,7 +653,10 @@ def main():
 				#thread_title = data['thread']['thread_info']['title']
 				thread_title = data['thread']['title']
 			except KeyError:
-				raise Exception('Thread not accessible, abandoned')
+				try:
+					thread_title = data['thread']['thread_info']['title']
+				except KeyError:
+					raise Exception('Thread not accessible, abandoned')
 			thread_link = 'https://tieba.baidu.com/p/%s' % thread
 			ich = '[<\\\'|/"?*%>] '
 			thread_fn = ''.join([c for c in thread_title if c not in ich])
@@ -784,6 +787,7 @@ def main():
 							try:
 								sdt = json.loads(get_subs(thread, post['id'], page=cp_s, fn=thread_fn))['subpost_list']
 							except (ValueError, KeyError):
+                                sdt = []
 								pass
 						buf += '    </div>\n'
 						buf += '    \n'
